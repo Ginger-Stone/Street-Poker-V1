@@ -66,7 +66,6 @@ let computerCards = new Set();
 let humanCards = new Set();
 let info = document.getElementById("info");
 let timerT = document.getElementById("timer");
-let k = document.getElementsByClassName("listener");
 let BottomUi = document.getElementById(Bottom);
 let currentCard = document.getElementById("currentCard");
 
@@ -244,7 +243,8 @@ async function switchBetweenPlayers(status) {
 }
 
 let i = 0;
-async function removeEventListeners() {
+function removeEventListeners() {
+  let k = document.getElementsByClassName("listener");
   while (i < k.length) {
     // console.log(k[i]);
     k[i].removeEventListener("click", function () {
@@ -260,6 +260,7 @@ async function removeEventListeners() {
 }
 
 function addEventListeners() {
+  let k = document.getElementsByClassName("listener");
   let j = 0;
   while (j < k.length) {
     // console.log(k[j]);
@@ -277,7 +278,7 @@ function addEventListeners() {
   if (Bottom[0] === "J") {
     document.getElementById("command").innerHTML = "Jump";
     document.getElementById("command").addEventListener("click", function () {
-      jump(true);
+      jump(false);
     });
   }
 }
@@ -288,10 +289,13 @@ function getPlayedCard(humanCardChoice) {
   GameStatus = false;
   // console.log("my"+humanCardChoice)
   if (humanCardChoice != null && Bottom != false) {
+    let cardsInPlay = getCardsInPlay(Bottom, humanCardChoice);
+    let BottomUi = cardsInPlay[0];
+    let cardOnTopUi = cardsInPlay[1];
     let cardIsPlayed = gameRules(Bottom, humanCardChoice);
     if (cardIsPlayed === humanCardChoice) {
-      console.log(`Bottom card is ${humanCardChoice}`);
-      console.log(`card is played ${cardIsPlayed}`);
+      // console.log(`Bottom card is ${humanCardChoice}`);
+      console.log(`Human played ${cardIsPlayed}`);
       sleep(1000);
       info.innerHTML = "You Played: " + humanCardChoice;
       if (
@@ -299,8 +303,8 @@ function getPlayedCard(humanCardChoice) {
         (humanCardChoice[1] === Bottom[1] && humanCardChoice != false)
       ) {
         console.log(`removing from human pack ${humanCardChoice}`);
-        // document.getElementById(humanCardChoice).remove()
-
+        RemoveCardsInPlay(BottomUi, cardOnTopUi, humanCardChoice);
+        cardReplace(humanCardChoice);
         humanCards.delete(humanCardChoice);
       }
 
@@ -308,13 +312,9 @@ function getPlayedCard(humanCardChoice) {
         switchBetweenPlayers(false);
       } else {
         switchBetweenPlayers(true);
+        // break;
       }
-    }
-    // else if(cardIsPlayed!=humanCardChoice&&cardIsPlayed[0]==="K"){
-    //         // cardBottom=cardOnTop
-    //         switchBetweenPlayers(true)
-    // }
-    else if (cardIsPlayed != humanCardChoice && cardIsPlayed[0] === "J") {
+    } else if (cardIsPlayed != humanCardChoice && cardIsPlayed[0] === "J") {
       // cardBottom=cardOnTop
       switchBetweenPlayers(true);
     } else if (cardIsPlayed != humanCardChoice) {
@@ -323,13 +323,8 @@ function getPlayedCard(humanCardChoice) {
       switchBetweenPlayers(false);
     }
   } else {
-    // humanCardChoice=cardOnBoard
+    switchBetweenPlayers(false);
   }
-
-  // while (GameStatus===true){
-  //     // console.log(computerCards)
-  //     gameLogic(computerCards)
-  // }
   return humanCardChoice;
 }
 
@@ -371,7 +366,7 @@ function cardOnBoard() {
 // the logic of the game. Used by the computer to understand the game
 //human=>the last card played while computer=>computer array of cards
 
-function gameLogic(computer) {
+async function gameLogic(computer) {
   let computerPlayed;
   let i = 0;
   if (GameStatus == true) {
@@ -381,30 +376,30 @@ function gameLogic(computer) {
     while (i <= compNumberOfCards) {
       if (compNumberOfCards === 1) {
         console.log("nko Kadi" + computerCards);
-        nkoKadi(true);
-        // break
+        let nk = nkoKadi(true);
+        if (nk == -1) {
+          collectCard();
+        }
       }
       computerIndex = Array.from(computer)[i];
 
       if (i < compNumberOfCards) {
-        console.log(Bottom);
-        console.log(computerIndex);
-        if (
-          Bottom[0] === computerIndex[0] ||
-          (Bottom[1] === computerIndex[1] && computerPlayed != false)
-        ) {
-          computerPlayed = gameRules(Bottom, computerIndex);
-          let bb = computerPlayed;
-          console.log(`Computer Played: ${computerPlayed}`);
-          console.log(computerPlayed);
-          if (
-            computerPlayed[0] === Bottom[0] ||
-            (computerPlayed[1] === Bottom[1] && computerPlayed != false)
-          ) {
-            console.log(`removing comp card from pack ${computerPlayed}`);
-            // document.getElementById(computerPlayed).remove()
-            computerCards.delete(computerPlayed);
-          }
+        let cardsInPlay = getCardsInPlay(Bottom, computerIndex);
+        let BottomUi = cardsInPlay[0];
+        let cardOnTopUi = cardsInPlay[1];
+        computerPlayed = gameRules(Bottom, computerIndex);
+        let bb = computerPlayed;
+        console.log(`Computer Played: ${computerPlayed}`);
+        // console.log(computerPlayed);
+        if (computerPlayed != false) {
+          console.log(`removing comp card from pack ${computerPlayed}`);
+          // document.getElementById(computerPlayed).remove()
+          await sleep(1000);
+          RemoveCardsInPlay(BottomUi, cardOnTopUi, computerIndex);
+
+          cardReplace(computerPlayed);
+          computerCards.delete(computerPlayed);
+
           if (bb[0] === "Q" || bb[0] === "8") {
             switchBetweenPlayers(true);
             bb = 0;
@@ -418,12 +413,7 @@ function gameLogic(computer) {
         collectCard();
         switchBetweenPlayers(false);
         break;
-      }
-      //    else if(i===compNumberOfCards&&Bottom[0]==="K"){
-      //     kickback(false)
-      //     break
-      //    }
-      else if (i === compNumberOfCards && Bottom[0] === "J") {
+      } else if (i === compNumberOfCards && Bottom[0] === "J") {
         jump(GameStatus);
         break;
       }
@@ -431,117 +421,64 @@ function gameLogic(computer) {
       i++;
       console.log("i is:" + i);
     }
+  }
+}
 
-    // }
+function getCardsInPlay(cardBottom, cardOnTop) {
+  let BottomUi = document.getElementById(cardBottom);
+  let cardOnTopUi = document.getElementById(cardOnTop);
+  return [BottomUi, cardOnTopUi];
+}
+
+function RemoveCardsInPlay(BottomUi, cardOnTopUi, cardOnTop) {
+  // place this first line before any rule so as to remove player card once its clicked
+  if (cardOnTopUi != null) {
+    document.getElementById(cardOnTop).remove();
+  }
+  if (BottomUi != null) {
+    // document.getElementById(cardBottom).remove()
+    let pc = document.getElementsByClassName("playing-card");
+    let i = 0;
+    while (i < pc.length) {
+      pc[0].remove();
+      i++;
+    }
   }
 }
 
 // Rules of the game
 function gameRules(cardBottom, cardOnTop) {
   let prev = cardBottom;
-  let BottomUi = document.getElementById(cardBottom);
-  let cardOnTopUi = document.getElementById(cardOnTop);
-  // console.log("card Top: "+cardOnTop)
   if (cardBottom[0] === cardOnTop[0] || cardBottom[1] === cardOnTop[1]) {
-    // console.log("card Bottom: " + cardBottom);
-    // console.log("card Top: " + cardOnTop);
-    // console.log("We're all set");
     if (cardBottom[0] === "2") {
       if (cardBottom[0] === cardOnTop[0] || cardOnTop[0] === "A") {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-        cardReplace(cardBottom, cardOnTop);
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
       } else if (cardOnTop[0] === "3" && cardOnTop[1] === cardBottom[1]) {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-        cardReplace(cardBottom, cardOnTop);
-      } else if (cardBottom[0] != cardOnTop[0] || cardOnTop[0] != "A") {
-        // if(GameStatus=true){
-        // collectCard(2);
-        // }
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
+      } else {
+        return false;
       }
     } else if (cardBottom[0] === "3") {
       if (cardBottom[0] === cardOnTop[0] || cardOnTop[0] === "A") {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-        cardReplace(cardBottom, cardOnTop);
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
       } else if (cardOnTop[0] === "2" && cardOnTop[1] === cardBottom[1]) {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-        cardReplace(cardBottom, cardOnTop);
-      } else if (cardBottom[0] != cardOnTop[0] || cardOnTop[0] != "A") {
-        // if(GameStatus=true){
-        // collectCard(2);
-        // }
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
+      } else {
+        return false;
       }
     } else if (cardBottom[0] === "J") {
-      // if(GameStatus===false){
-      // document.getElementById('command').innerHTML="Jump"
-      // document.getElementById('command').addEventListener("click",function(){
-      //     jump(GameStatus)
-      // })
-      // }
       if (
         (cardBottom[0] === "J" && cardOnTop[0] === "J") ||
         (cardBottom[0] === "J" && cardOnTop[0] === "A")
       ) {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
         document
           .getElementById("command")
           .removeEventListener("click", function () {
@@ -557,61 +494,36 @@ function gameRules(cardBottom, cardOnTop) {
         document.querySelector("#starting-card").appendChild(imagesDiv);
         imagesDiv.appendChild(cardImg);
         console.log("Game continues with " + Bottom);
+        return Bottom;
       } else {
-      }
-      // }else if(cardBottom==="K"){
-      //     // if(GameStatus===false){
-      //         document.getElementById('command').innerHTML="Kickback"
-      //         document.getElementById('command').addEventListener("click",function(){
-      //             kickback(GameStatus)
-      //         })
-      //     // }
-      //     if(cardBottom[0]==="K"&&cardOnTop[0]==="K"||cardBottom[0]==="K"&&cardOnTop[0]==="A"){
-      //         if(BottomUi!=null){
-      //             document.getElementById(cardBottom).remove()
-      //             }
-      //             cardReplace(cardBottom,cardOnTop)
-      //         }else{
-
-      //         }
-    } else if (cardOnTop[0] === "Q" || cardOnTop[0] === "8") {
-      // place this first line before any rule so as to remove player card once its clicked
-      if (cardOnTopUi != null) {
-        document.getElementById(cardOnTop).remove();
-      }
-      if (BottomUi != null && cardBottom != null) {
-        // document.getElementById(cardBottom).remove()
-        let pc = document.getElementsByClassName("playing-card");
-        let i = 0;
-        while (i < pc.length) {
-          pc[0].remove();
-          i++;
-        }
-      }
-      cardReplace(cardBottom, cardOnTop);
-    } else if (cardBottom[0] === "Q" || cardBottom[0] === "8") {
-      if (cardBottom[1] === cardOnTop[1]) {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        console.log("Bottom nu" + cardBottom);
-        if (BottomUi != null) {
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-        cardReplace(cardBottom, cardOnTop);
+        return false;
       }
     } else if (
-      (cardBottom[0] === "Q" && cardBottom[1] != cardOnTop[1]) ||
-      (cardBottom[0] === "8" && cardBottom[1] != cardOnTop[1])
+      cardOnTop[0] === "Q" ||
+      cardOnTop[0] === "8" ||
+      cardBottom[0] === "Q" ||
+      cardBottom[0] === "8"
     ) {
-      collectCard();
+      if (cardOnTop[0] === "Q" || cardOnTop[0] === "8") {
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
+      } else if (
+        (cardBottom[0] === "Q" || cardBottom[0] === "8") &&
+        (cardOnTop[0] != "2" ||
+          cardOnTop[0] != "3" ||
+          cardOnTop[0] != "8" ||
+          cardOnTop[0] != "J" ||
+          cardOnTop[0] != "Q")
+      ) {
+        if (cardBottom[1] === cardOnTop[1]) {
+          cardBottom = cardOnTop;
+          Bottom = cardOnTop;
+          return Bottom;
+        }
+      } else {
+        return false;
+      }
     } else if (
       cardBottom[0] != "2" &&
       cardBottom[0] != "3" &&
@@ -620,79 +532,23 @@ function gameRules(cardBottom, cardOnTop) {
       cardBottom[0] != "Q"
     ) {
       if (cardBottom[0] === cardOnTop[0] || cardBottom[1] === cardOnTop[1]) {
-        // place this first line before any rule so as to remove player card once its clicked
-        if (cardOnTopUi != null) {
-          document.getElementById(cardOnTop).remove();
-        }
-        // console.log(cardBottom)
-        console.log("not special" + cardBottom);
-        if (BottomUi != null) {
-          console.log(Bottom);
-          console.log(cardBottom);
-          // document.getElementById(cardBottom).remove()
-          let pc = document.getElementsByClassName("playing-card");
-          let i = 0;
-          while (i < pc.length) {
-            pc[0].remove();
-            i++;
-          }
-        }
-
-        cardReplace(cardBottom, cardOnTop);
-        console.log(cardBottom);
+        cardBottom = cardOnTop;
+        Bottom = cardOnTop;
+        return Bottom;
       }
     }
   } else if (cardOnTop[0] === "A") {
-    // place this first line before any rule so as to remove player card once its clicked
     let ACard = cardOnTop;
-    if (cardOnTopUi != null) {
-      document.getElementById(cardOnTop).remove();
-    }
-    if (BottomUi != null) {
-      //   document.getElementById(cardBottom).remove();
-      let pc = document.getElementsByClassName("playing-card");
-      let i = 0;
-      while (i < pc.length) {
-        pc[0].remove();
-        i++;
-      }
-    }
-    console.log("change game");
     cardBottom = ACard;
     Bottom = ACard;
-    cardReplace(cardBottom, cardOnTop);
-  } else if (cardBottom[0] != cardOnTop[0] && cardBottom[1] != cardOnTop[1]) {
-    console.log(GameStatus);
-    if (GameStatus === false) {
-      // GameStatus=false
-      info.innerHTML = "Not a possible move";
-      // switchBetweenPlayers(false)
-
-      console.log(
-        "Oops! Not a possible move. Check out the rules to see what you are doing wrong!!"
-      );
-      return false;
-      // break;
-    } else if (GameStatus === true) {
-      switchBetweenPlayers(true);
-      return cardBottom;
-      // gameLogic(computerCards)
-      // break;
-    }
-  }
-  console.log("Bottom & prev " + prev + ", " + Bottom);
-  if (prev == Bottom) {
-    return false;
-  } else {
     return Bottom;
+  } else if (cardBottom[0] != cardOnTop[0] && cardBottom[1] != cardOnTop[1]) {
+    return false;
   }
 }
 
 // card Check and replace - reusable
-function cardReplace(cb, ct) {
-  cb = ct;
-  Bottom = ct;
-  console.log(ct);
+function cardReplace(cb) {
   let cardImg = document.createElement("img");
   cardImg.setAttribute("id", cb);
   cardImg.src = `images/PNG/${cb}.png`;
@@ -811,7 +667,7 @@ function playMoreSame(cardBottom, cardOnTop) {
 
 // Gives a player cards during the game depending on the situation
 // check which card is on board first
-function collectCard() {
+async function collectCard() {
   console.log("collect card Bottom" + Bottom);
   let i = 0;
   if (Bottom[0] === "2") {
@@ -858,32 +714,12 @@ function collectCard() {
     number = 0;
   } else {
     number = 1;
-    // if (Bottom != null) {
-    //   //   document.getElementById(Bottom).remove();
-    //   let pc = document.getElementsByClassName("playing-card");
-    //   let i = 0;
-    //   while (i < pc.length) {
-    //     pc[0].remove();
-    //     i++;
-    //   }
-    // }
-    // if(Bottom!=null){
-    //     console.log(Bottom)
-    // document.getElementById(Bottom).remove()
-    // }
-    // let cardImg= document.createElement('img');
-    // cardImg.setAttribute('id',Bottom)
-    // cardImg.src=`images/PNG/${Bottom}.png`;
-    // let imagesDiv=document.createElement('div')
-    // imagesDiv.setAttribute('class','playing-card')
-    // document.querySelector('#starting-card').appendChild(imagesDiv)
-    // imagesDiv.appendChild(cardImg);
-    // console.log("Game continues with " +Bottom)
   }
 
   if (GameStatus === false) {
     console.log("You are collecting " + number + "cards");
     while (i < number) {
+      await sleep(500);
       human();
       i++;
     }
@@ -892,7 +728,7 @@ function collectCard() {
   } else if (GameStatus === true) {
     console.log("computer collecting " + number + "cards");
     while (i < number) {
-      sleep(1500);
+      await sleep(1000);
       computer();
       i++;
     }
@@ -953,6 +789,8 @@ function nkoKadi(status) {
         } else if (status === true) {
           document.getElementById("end-game").innerHTML = name + " won!!☹️";
         }
+      } else {
+        return -1;
       }
     } else {
       info.innerHTML = "Cannot finish game with a special card";
@@ -995,4 +833,4 @@ function sleep(ms) {
 // May the games begin :)
 play();
 
-// module.exports = { cardReplace };
+module.exports = { gameRules };
